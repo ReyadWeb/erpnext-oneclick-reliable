@@ -1,12 +1,55 @@
 #!/usr/bin/env bash
-# Interactive wrapper that gathers input, validates, then calls install.sh with flags.
+# Interactive installer (self-bootstrapping for curl|bash usage)
 set -euo pipefail
-REPO_DIR="$(cd "$(dirname "$0")"/.. && pwd)"
+
+# --- minimal root check before sourcing helpers ---
+if [[ "$(id -u)" -ne 0 ]]; then
+  echo "✖ Please run as root (sudo)." >&2
+  exit 1
+fi
+
+GITHUB_REPO="ReyadWeb/erpnext-oneclick-reliable"
+WORKDIR="/opt/erpnext-oneclick"
+mkdir -p "$WORKDIR"
+
+have_cmd(){ command -v "$1" >/dev/null 2>&1; }
+
+# Try to locate repo dir relative to this script (works when file exists on disk)
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "${SELF_DIR}/.." && pwd)"
+
+# If helpers aren’t present, we’re likely running via curl | bash. Bootstrap:
+if [[ ! -f "${REPO_DIR}/scripts/helpers.sh" ]]; then
+  echo "ℹ Bootstrapping from GitHub…"
+  have_cmd curl || apt-get update -y && apt-get install -y curl ca-certificates
+  TAR_URL="https://codeload.github.com/${GITHUB_REPO}/tar.gz/refs/heads/main"
+  TMPDIR="$(mktemp -d)"
+  curl -fsSL "$TAR_URL" | tar -xz -C "$TMPDIR"
+  # Find extracted folder (should be <repo>-main)
+  BOOT_DIR="$(find "$TMPDIR" -maxdepth 1 -type d -name '*erpnext-oneclick-reliable*' | head -n1)"
+  if [[ -z "$BOOT_DIR" ]]; then
+    echo "✖ Failed to download repo from $TAR_URL" >&2
+    exit 1
+  fi
+  # Move into WORKDIR for stable path
+  rm -rf "${WORKDIR:?}/current"
+  mv "$BOOT_DIR" "${WORKDIR}/current"
+  REPO_DIR="${WORKDIR}/current"
+fi
+
+# Now we can source helpers & UI
+# shellcheck disable=SC1091
 source "${REPO_DIR}/scripts/helpers.sh"
+# shellcheck disable=SC1091
 source "${REPO_DIR}/scripts/ui.sh"
 
 require_root
 preflight_checks
+
+# Ensure whiptail if user wants the pretty UI (optional; we still fallback cleanly)
+if ! have_cmd whiptail; then
+  apt_install whiptail || true
+fi
 
 progress "Collecting install details..."
 
@@ -58,6 +101,7 @@ if [[ "$(confirm "Proceed" "Begin installation now?")" != "yes" ]]; then
   exit 1
 fi
 
+# Run the real installer from the repo directory we ensured above
 set +e
 bash "${REPO_DIR}/install.sh" \
   --frappe-user "$FRAPPE_USER" \
