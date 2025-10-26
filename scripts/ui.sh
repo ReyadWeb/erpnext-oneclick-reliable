@@ -14,7 +14,8 @@ prompt(){
     # fall through on cancel/failure
   fi
   local ans
-  read -rp "$(printf '%s\n%s [%s]: ' "$title" "$text" "$default")" ans
+  # read from the real terminal so curl|bash still works
+  read -rp "$(printf '%s\n%s [%s]: ' "$title" "$text" "$default")" ans </dev/tty || true
   echo "${ans:-$default}"
 }
 
@@ -27,8 +28,9 @@ secret(){
     fi
     # fall through on cancel/failure
   fi
-  local ans
-  read -rsp "$(printf '%s\n%s: ' "$title" "$text")" ans
+  local ans=""
+  # read from the real terminal so curl|bash still works
+  read -rsp "$(printf '%s\n%s: ' "$title" "$text")" ans </dev/tty || true
   echo
   echo "$ans"
 }
@@ -43,7 +45,8 @@ confirm(){
     fi
   fi
   local ans
-  read -rp "$(printf '%s\n%s [Y/n]: ' "$title" "$text")" ans
+  # read from the real terminal so curl|bash still works
+  read -rp "$(printf '%s\n%s [Y/n]: ' "$title" "$text")" ans </dev/tty || true
   case "${ans:-y}" in y|Y) echo "yes";; *) echo "no"; return 1;; esac
 }
 
