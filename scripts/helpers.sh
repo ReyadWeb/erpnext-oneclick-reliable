@@ -22,11 +22,8 @@ err(){   color "1;31" "✖ $*"; }
 require_root(){
   if [[ "$(id -u)" -ne 0 ]]; then err "Run as root (sudo)."; exit 1; fi
 }
-require_sudo(){
-  if [[ -z "${SUDO_USER:-}" && "$(id -u)" -ne 0 ]]; then err "sudo privileges are required."; exit 1; fi
-}
 
-# Resume/Idempotency: mark steps
+# Resume/Idempotency
 step_run(){
   local name="$1"; shift
   local marker="${STATE_DIR}/${name}.done"
@@ -40,7 +37,7 @@ step_run(){
   ok "Step '${name}' completed."
 }
 
-# Retry wrapper with dpkg/apt lock wait
+# Retries + apt lock
 with_retries(){
   local tries="${1:-5}"; shift
   local delay=4
@@ -70,19 +67,6 @@ apt_upgrade(){
   with_retries 5 bash -lc "apt-get update -y && apt-get upgrade -y"
 }
 
-# Networking checks
-require_cmd(){ command -v "$1" >/dev/null 2>&1 || { err "Missing dependency: $1"; exit 1; }; }
-check_host(){
-  local host="$1"
-  if ! getent ahostsv4 "$host" >/dev/null; then warn "Cannot resolve $host"; return 1; fi
-  return 0
-}
-check_http(){
-  local url="$1"
-  if ! curl -fsI --max-time 15 "$url" >/dev/null; then warn "Cannot reach $url"; return 1; fi
-  return 0
-}
-
 # System sanity
 detect_ubuntu(){
   . /etc/os-release
@@ -94,7 +78,7 @@ detect_ubuntu(){
 }
 
 mem_mb(){ awk '/MemTotal/ {printf "%d", $2/1024}' /proc/meminfo; }
-disk_gb(){ df -Pm / | awk 'NR==2{printf "%d", $4/1024}' ; } # free space
+disk_gb(){ df -Pm / | awk 'NR==2{printf "%d", $4/1024}' ; }
 
 ensure_swap(){
   local need_mb="${1:-4096}"
@@ -112,10 +96,11 @@ ensure_swap(){
   fi
 }
 
-# Validation helpers
+# Validation + utils
+require_cmd(){ command -v "$1" >/dev/null 2>&1 || { err "Missing dependency: $1"; exit 1; }; }
 is_valid_domain(){ [[ "$1" =~ ^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$ ]]; }
-
 resolve_a_record(){ getent ahostsv4 "$1" | awk '{print $1}' | head -n1; }
+check_http(){ curl -fsI --max-time 15 "$1" >/dev/null 2>&1; }
 
 preflight_checks(){
   info "Running preflight checks..."
@@ -125,18 +110,15 @@ preflight_checks(){
   info "Free RAM: ${mem}MB | Free disk: ${disk}GB"
   if [[ "$mem" -lt 3500 ]]; then warn "RAM < 3.5GB; swap will be added."; ensure_swap 4096; fi
   if [[ "$disk" -lt 25 ]]; then warn "Free disk < 25GB; consider expanding disk."; fi
-  check_host "raw.githubusercontent.com" || true
-  check_http "https://pypi.org/simple" || true
+  check_http "https://pypi.org/simple" || warn "Cannot reach PyPI (pip packages may fail)."
   ok "Preflight checks finished."
 }
 
-# Safe su -c for login shell (needed for nvm)
 run_as_user(){
   local user="$1"; shift
   su - "$user" -c "bash -lc \"$*\""
 }
 
-# Append a line once to a file
 append_once(){ local file="$1"; shift; local line="$*"; grep -qxF "$line" "$file" 2>/dev/null || echo "$line" >> "$file"; }
 
 ensure_user(){

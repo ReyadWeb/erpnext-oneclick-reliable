@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 source "$(dirname "$0")/scripts/helpers.sh"
 require_root
 
@@ -9,14 +9,14 @@ FRAPPE_HOME="${FRAPPE_HOME:-/home/${FRAPPE_USER}}"
 warn "This will remove bench, site, and apps. Press Ctrl+C to abort."
 sleep 3
 
-if systemctl is-active --quiet supervisor; then
+if command -v supervisorctl >/dev/null 2>&1; then
   supervisorctl stop all || true
 fi
 
-su - "$FRAPPE_USER" -c "bash -lc 'rm -rf ~/frappe-bench'"
+run_as_user "$FRAPPE_USER" 'rm -rf ~/frappe-bench'
 ok "Removed frappe-bench."
 
-# Optional: purge packages (commented by default)
+# Optional: purge packages (commented):
 # apt-get purge -y mariadb-server redis-server nginx supervisor
 # apt-get autoremove -y
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ERPNext One‑Click Installer (hardened)
+# ERPNext One‑Click Installer (reliable edition)
 set -Eeuo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -9,7 +9,7 @@ require_root
 preflight_checks
 apt_upgrade
 
-# Parse flags
+# Flags
 ENV_FILE=""
 FRAPPE_USER="frappe"
 SITE_NAME="erp.local"
@@ -46,7 +46,7 @@ info "Settings:
   Log file: $(readlink -f /var/log/erpnext-oneclick/install.log)
 "
 
-# System packages
+# Base packages
 step_run sys.base apt_install git python3-dev python3-venv python3-pip python3-pip-whl \
   redis-server curl xvfb libfontconfig wkhtmltopdf software-properties-common \
   supervisor nginx ca-certificates lsb-release
@@ -66,10 +66,9 @@ step_run node.install "${REPO_DIR}/scripts/install_node.sh"
 export MYSQL_ROOT_PASSWORD
 step_run mariadb.install "${REPO_DIR}/scripts/install_mariadb.sh"
 
-# Python tool: prefer pipx for bench
+# Bench via pipx preferred
 step_run pip.ensurepipx apt_install pipx || true
 if ! command -v pipx >/dev/null 2>&1; then
-  # fallback to pip
   warn "pipx not found; using pip system install for bench."
   step_run pip.bench with_retries 5 bash -lc "python3 -m pip install -U pip && python3 -m pip install frappe-bench ansible"
 else
@@ -90,7 +89,7 @@ if [[ -z "${MYSQL_ROOT_PASSWORD:-}" ]]; then
 fi
 step_run bench.new_site run_as_user "$FRAPPE_USER" "cd ~/frappe-bench && bench new-site ${SITE_NAME} --admin-password \"${ADMIN_PASSWORD}\" --mariadb-root-password \"${MYSQL_ROOT_PASSWORD}\" --no-mariadb-socket"
 
-# Install apps on site
+# Install apps to site
 for app in $APPS; do
   step_run "bench.install_app.${app}" run_as_user "$FRAPPE_USER" "cd ~/frappe-bench && bench --site ${SITE_NAME} install-app ${app}"
 done

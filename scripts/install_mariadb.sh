@@ -12,11 +12,9 @@ if [[ -z "${MYSQL_ROOT_PASSWORD}" ]]; then
   warn "Generated MySQL root password (store safely): ${MYSQL_ROOT_PASSWORD}"
 fi
 
-# Secure install (idempotent)
 with_retries 5 bash -lc "mysql --user=root -e \"ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}'; FLUSH PRIVILEGES;\" " || true
 with_retries 5 bash -lc "mysql -uroot -p'${MYSQL_ROOT_PASSWORD}' -e \"DELETE FROM mysql.user WHERE User=''; DROP DATABASE IF EXISTS test; DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%'; FLUSH PRIVILEGES;\" " || true
 
-# ERPNext recommended charset/collation + mode
 cat >/etc/mysql/mariadb.conf.d/erpnext.cnf <<'CNF'
 [mysqld]
 character-set-client-handshake = FALSE
@@ -28,7 +26,6 @@ CNF
 
 systemctl restart mariadb
 
-# Version info
 VER="$(mysql -Nse 'SELECT VERSION()' -uroot -p"${MYSQL_ROOT_PASSWORD}" || true)"
 info "MariaDB version: ${VER:-unknown}"
 ok "MariaDB installed and configured."

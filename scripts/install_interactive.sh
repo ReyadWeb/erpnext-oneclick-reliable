@@ -75,7 +75,7 @@ if [[ $rc -ne 0 ]]; then
   echo "Tips:"
   echo "  - Check free RAM (need ~4GB) and disk (need ~40GB)."
   echo "  - If MariaDB failed to secure, ensure no existing root password and rerun."
-  echo "  - Inspect /var/log/syslog, /var/log/nginx/error.log, supervisorctl status."
+  echo "  - Inspect /var/log/erpnext-oneclick/install.log, /var/log/nginx/error.log, supervisorctl status."
   exit $rc
 else
   ok "Installation completed successfully."

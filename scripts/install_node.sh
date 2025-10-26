@@ -5,7 +5,6 @@ source "$(dirname "$0")/helpers.sh"
 : "${FRAPPE_USER:?FRAPPE_USER not set}"
 
 step_run node.nvm_bootstrap run_as_user "$FRAPPE_USER" 'command -v nvm || (curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash)'
-# make sure nvm is in profile
 append_once "/home/${FRAPPE_USER}/.bashrc" 'export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
 append_once "/home/${FRAPPE_USER}/.profile" 'export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
 

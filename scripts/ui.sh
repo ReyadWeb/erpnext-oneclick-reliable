@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Lightweight TUI helpers. Uses whiptail if present, falls back to read/echo.
+# Lightweight TUI using whiptail if available, with safe fallbacks.
 set -euo pipefail
 
 _has_whiptail(){ command -v whiptail >/dev/null 2>&1; }
@@ -27,7 +27,7 @@ secret(){
 }
 
 confirm(){
-  local title="$1" text="$2" default="${3:-Yes}"
+  local title="$1" text="$2"
   if _has_whiptail; then
     if whiptail --title "$title" --yesno "$text" 10 70; then
       echo "yes"; return 0
@@ -42,7 +42,6 @@ confirm(){
 }
 
 progress(){
-  # progress "Message..."
   local msg="${1:-Working...}"
   if _has_whiptail; then
     whiptail --title "Working" --infobox "$msg" 8 70
