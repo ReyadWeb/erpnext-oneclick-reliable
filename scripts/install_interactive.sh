@@ -14,14 +14,19 @@ mkdir -p "$WORKDIR"
 
 have_cmd(){ command -v "$1" >/dev/null 2>&1; }
 
-# Try to locate repo dir relative to this script (works when file exists on disk)
-SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_DIR="$(cd "${SELF_DIR}/.." && pwd)"
+# In piped mode (curl|bash) BASH_SOURCE can be empty; handle safely
+SELF="${BASH_SOURCE[0]:-}"
+if [[ -n "$SELF" ]]; then
+  SELF_DIR="$(cd "$(dirname "$SELF")" && pwd)"
+else
+  SELF_DIR="$(pwd)"
+fi
+REPO_DIR="$(cd "${SELF_DIR}/.." 2>/dev/null || echo "${SELF_DIR}")"
 
 # If helpers aren’t present, we’re likely running via curl | bash. Bootstrap:
 if [[ ! -f "${REPO_DIR}/scripts/helpers.sh" ]]; then
   echo "ℹ Bootstrapping from GitHub…"
-  have_cmd curl || apt-get update -y && apt-get install -y curl ca-certificates
+  have_cmd curl || { apt-get update -y && apt-get install -y curl ca-certificates; }
   TAR_URL="https://codeload.github.com/${GITHUB_REPO}/tar.gz/refs/heads/main"
   TMPDIR="$(mktemp -d)"
   curl -fsSL "$TAR_URL" | tar -xz -C "$TMPDIR"
@@ -37,7 +42,9 @@ if [[ ! -f "${REPO_DIR}/scripts/helpers.sh" ]]; then
   REPO_DIR="${WORKDIR}/current"
 fi
 
-# Now we can source helpers & UI
+# Try to keep whiptail happy in minimal consoles
+export TERM="${TERM:-xterm-256color}"
+
 # shellcheck disable=SC1091
 source "${REPO_DIR}/scripts/helpers.sh"
 # shellcheck disable=SC1091
@@ -46,7 +53,7 @@ source "${REPO_DIR}/scripts/ui.sh"
 require_root
 preflight_checks
 
-# Ensure whiptail if user wants the pretty UI (optional; we still fallback cleanly)
+# Ensure whiptail if we want the pretty UI; fallback still works if install fails
 if ! have_cmd whiptail; then
   apt_install whiptail || true
 fi
